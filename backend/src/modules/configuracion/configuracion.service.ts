@@ -1,0 +1,62 @@
+import { Injectable } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { Configuracion } from '../../database/entities';
+
+@Injectable()
+export class ConfiguracionService {
+  constructor(
+    @InjectRepository(Configuracion)
+    private configuracionRepository: Repository<Configuracion>,
+  ) {}
+
+  async getConfiguracion(): Promise<any> {
+    const config = await this.configuracionRepository.findOne({ 
+      where: { clave: 'sistema' } 
+    });
+    
+    if (config) {
+      return config.valor;
+    }
+
+    const defaultConfig = {
+      autoTariff: 4000,
+      motoTariff: 2000,
+      vanTariff: 6000,
+      discTariff: 3000,
+      maxDay: 40000,
+      openingTime: '06:00',
+      closingTime: '22:00',
+      companyName: 'ParkPro SAS',
+      nit: '900.123.456-7',
+      address: 'Calle 123 # 45-67',
+      phone: '300 123 4567',
+      email: 'contacto@parkpro.com',
+      descuentoEmpleadoPredeterminado: 100,
+    };
+
+    await this.configuracionRepository.save({
+      clave: 'sistema',
+      valor: defaultConfig,
+    });
+
+    return defaultConfig;
+  }
+
+  async guardarConfiguracion(config: any): Promise<Configuracion> {
+    let existing = await this.configuracionRepository.findOne({ 
+      where: { clave: 'sistema' } 
+    });
+
+    if (existing) {
+      existing.valor = config;
+      return this.configuracionRepository.save(existing);
+    } else {
+      const newConfig = this.configuracionRepository.create({
+        clave: 'sistema',
+        valor: config,
+      });
+      return this.configuracionRepository.save(newConfig);
+    }
+  }
+}
