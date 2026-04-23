@@ -417,7 +417,7 @@ Generado: ${new Date().toLocaleString('es-CO')}
 
  INGRESOS
  ---------------------------------
- Ingresos del Di�a: ${formatCurrency(resumen?.ingresosDia || 0)}
+ Ingresos del Dia: ${formatCurrency(resumen?.ingresosDia || 0)}
  Ingresos del Mes: ${formatCurrency(resumen?.ingresosMes || 0)}
 
  POR METODO DE PAGO:
@@ -514,7 +514,7 @@ Generado el: ${new Date().toLocaleString('es-CO')}
       ['Tickets Finalizados', resumen?.ticketsFinalizados || 0, '', ''],
       ['', '', '', ''],
       ['INGRESOS', '', '', ''],
-      ['Ingresos del Di�a', formatNumber(resumen?.ingresosDia || 0), '', ''],
+      ['Ingresos del Dia', formatNumber(resumen?.ingresosDia || 0), '', ''],
       ['Ingresos del Mes', formatNumber(resumen?.ingresosMes || 0), '', ''],
       ['', '', '', ''],
       ['METODO DE PAGO', 'VALOR (COP)', '', ''],

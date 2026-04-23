@@ -1,7 +1,7 @@
 {
   "name": "parkpro-backend",
   "version": "1.0.0",
-  "description": "Sistema de Gestión de Parqueadero - Backend API",
+  "description": "Sistema de Gestion de Parqueadero - Backend API",
   "author": "ParkPro Team",
   "private": true,
   "license": "MIT",

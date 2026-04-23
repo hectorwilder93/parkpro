@@ -72,7 +72,7 @@ export default function Login() {
             />
             <TextField
               fullWidth
-              label="ContraseÃ±a"
+              label="Contraseña"
               type={showPassword ? 'text' : 'password'}
               value={password}
               onChange={(e) => setPassword(e.target.value)}

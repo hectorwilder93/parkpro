@@ -1,11 +1,11 @@
 -- =====================================================
 -- SISTEMA DE PARQUEADERO "PARKPRO"
--- Script de creación de base de datos PostgreSQL
--- Versión: 1.0
+-- Script de creacion de base de datos PostgreSQL
+-- Version: 1.0
 -- =====================================================
 
 -- =====================================================
--- 1. CREACIÓN DE LA BASE DE DATOS
+-- 1. CREACION DE LA BASE DE DATOS
 -- =====================================================
 CREATE DATABASE parkpro_db
     WITH 

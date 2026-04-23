@@ -244,7 +244,7 @@ export default function Settings() {
   };
 
   const handleDeleteEmployee = async (id: number) => {
-    if (!confirm('ï¿½Esta? seguro de eliminar este empleado? Esta accion no se puede deshacer.')) return;
+    if (!confirm('¿Esta? seguro de eliminar este empleado? Esta accion no se puede deshacer.')) return;
 
     try {
       await usersApi.delete(id);
@@ -368,7 +368,7 @@ export default function Settings() {
   };
 
   const handleDeleteSpace = async (id: string) => {
-    if (!confirm('ï¿½Esta seguro de eliminar este espacio?')) return;
+    if (!confirm('¿Esta seguro de eliminar este espacio?')) return;
 
     try {
       await spacesApi.delete(id);
@@ -421,7 +421,7 @@ export default function Settings() {
   };
 
   const handleDeactivateAsignacion = async (id: number) => {
-    if (!confirm('ï¿½Estaï¿½ seguro de desactivar esta asignacion?')) return;
+    if (!confirm('¿Esta ¿seguro de desactivar esta asignacion?')) return;
 
     try {
       const asignacion = asignaciones.find(a => a.id === id);

@@ -1,8 +1,13 @@
-import { useState, useEffect } from 'react';
-import { Box, Card, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, Tabs, Tab, TextField, Button, Grid, Dialog, DialogTitle, DialogContent, DialogActions, FormControl, InputLabel, Select, MenuItem, Alert, CircularProgress, IconButton, Divider, Checkbox, FormControlLabel } from '@mui/material';
-import { Add, Search, Close, Print, ContentCopy, ExitToApp, LocalParking } from '@mui/icons-material';
+import { useState, useEffect, useCallback } from 'react';
+import { Box, Card, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, Tabs, Tab, TextField, Button, Grid, Dialog, DialogTitle, DialogContent, DialogActions, FormControl, InputLabel, Select, MenuItem, Alert, CircularProgress, IconButton, Divider, Checkbox, FormControlLabel, Tooltip } from '@mui/material';
+import { Add, Search, Close, Print, ContentCopy, ExitToApp, LocalParking, Print as PrintIcon } from '@mui/icons-material';
 import { ticketsApi } from '../services/api';
 import Barcode from 'react-barcode';
+import ScannerDevice from '../components/devices/ScannerDevice';
+import PrinterDevice from '../components/devices/PrinterDevice';
+import { useBarcodeScanner } from '../hooks/useBarcodeScanner';
+import { useThermalPrinter } from '../hooks/useThermalPrinter';
+import { IVA_RATE, calcularLiquidacion, TARIFA_EMPLEADO } from '../utils/ticketUtils';
 
 interface Ticket {
   id: number;
@@ -54,8 +59,6 @@ interface TicketLiquidacion {
   metodo_pago: string;
 }
 
-const IVA_RATE = 0.19;
-
 export default function Tickets() {
   const [tab, setTab] = useState(0);
   const [search, setSearch] = useState('');
@@ -84,6 +87,47 @@ export default function Tickets() {
     referencia: '',
   });
 
+  const scanner = useBarcodeScanner();
+  const printer = useThermalPrinter();
+  const [scanResult, setScanResult] = useState<string | null>(null);
+
+  const handleBarcodeScanned = useCallback(async (codigoBarras: string) => {
+    if (!codigoBarras) return;
+
+    setScanResult(codigoBarras);
+
+    try {
+      const response = await ticketsApi.search({ codigo_barras: codigoBarras });
+      const foundTicket = response.data;
+
+      if (foundTicket && foundTicket.estado === 'ACTIVO') {
+        setSelectedTicket(foundTicket);
+        setOpenLiquidacionDialog(true);
+
+        const { horasCobrar, monto, tarifa } = calcularLiquidacion(foundTicket, false);
+
+        const totalBase = monto;
+        const ivaCalculado = Math.round(totalBase * IVA_RATE);
+        const totalConIva = totalBase + ivaCalculado;
+
+        setLiquidacion({
+          horas: horasCobrar,
+          monto: totalConIva,
+          tarifa
+        });
+        setCalculatedIva({ subtotal: totalBase, iva: ivaCalculado });
+      } else if (foundTicket && foundTicket.estado === 'FINALIZADO') {
+        setError('El ticket ya fue liquidado');
+      } else {
+        setError('Ticket no encontrado');
+      }
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Ticket no encontrado');
+    }
+
+    setScanResult(null);
+  }, []);
+
   const fetchTickets = async () => {
     try {
       const response = await ticketsApi.getAll();
@@ -95,6 +139,20 @@ export default function Tickets() {
 
   useEffect(() => {
     fetchTickets();
+  }, []);
+
+  useEffect(() => {
+    if (scanner.lastScannedCode && !scanResult) {
+      handleBarcodeScanned(scanner.lastScannedCode);
+    }
+  }, [scanner.lastScannedCode]);
+
+  useEffect(() => {
+    return () => {
+      if (scanner.lastScannedCode) {
+        scanner.lastScannedCode = null;
+      }
+    };
   }, []);
 
   const filteredTickets = tickets.filter(t => {
@@ -172,63 +230,27 @@ export default function Tickets() {
     window.print();
   };
 
+  const handlePrintToThermal = async () => {
+    if (!createdTicket) return;
+
+    try {
+      await printer.printEntryTicket({
+        codigoBarras: createdTicket.codigo_barras,
+        placa: createdTicket.placa,
+        tipoVehiculo: createdTicket.tipo_vehiculo,
+        espacio: createdTicket.espacio_id,
+        fechaIngreso: createdTicket.horario_ingreso,
+        nombreParqueadero: 'PARKPRO',
+      });
+    } catch (err: any) {
+      setError('Error al imprimir: ' + err.message);
+    }
+  };
+
   const copyToClipboard = () => {
     if (createdTicket) {
       navigator.clipboard.writeText(createdTicket.codigo_barras);
     }
-  };
-
-  const TARIFA_AUTOMOVIL = 10000;
-  const TARIFA_MOTOCICLETA = 3000;
-  const TARIFA_EMPLEADO = 1000;
-  const TARIFA_DISCAPACITADOS = 0;
-  const MINUTOS_POR_DIA = 24 * 60;
-
-  const calcularLiquidacion = (ticket: Ticket, esEmpleadoTicket: boolean) => {
-    const diffMs = new Date().getTime() - new Date(ticket.horario_ingreso).getTime();
-    const diffMinutes = Math.floor(diffMs / (1000 * 60));
-
-    let tarifa: number;
-
-    if (esEmpleadoTicket) {
-      tarifa = TARIFA_EMPLEADO;
-    } else {
-      switch (ticket.tipo_vehiculo) {
-        case 'Automovil':
-          tarifa = TARIFA_AUTOMOVIL;
-          break;
-        case 'Camioneta':
-          tarifa = TARIFA_AUTOMOVIL;
-          break;
-        case 'Motocicleta':
-          tarifa = TARIFA_MOTOCICLETA;
-          break;
-        case 'Discapacitados':
-          tarifa = TARIFA_DISCAPACITADOS;
-          break;
-        default:
-          tarifa = TARIFA_AUTOMOVIL;
-      }
-    }
-
-    let monto: number;
-    let horasCobrar: number;
-
-    if (diffMinutes <= 0) {
-      horasCobrar = 0;
-      monto = 0;
-    } else if (diffMinutes <= MINUTOS_POR_DIA) {
-      horasCobrar = Math.ceil(diffMinutes / 60);
-      monto = tarifa;
-    } else {
-      const diasCompletos = Math.floor(diffMinutes / MINUTOS_POR_DIA);
-      const minutosExtra = diffMinutes % MINUTOS_POR_DIA;
-      horasCobrar = Math.ceil(diffMinutes / 60);
-      const precioMinutoExtra = tarifa / MINUTOS_POR_DIA;
-      monto = (diasCompletos * tarifa) + Math.round(minutosExtra * precioMinutoExtra);
-    }
-
-    return { horasCobrar, monto, tarifa };
   };
 
   const handleOpenLiquidacion = (ticket: Ticket) => {
@@ -351,6 +373,26 @@ export default function Tickets() {
       metodo_pago: metodoPago,
     };
 
+    if (printer.connectedPrinter) {
+      try {
+        await printer.printExitTicket({
+          codigoBarras: selectedTicket.codigo_barras,
+          placa: selectedTicket.placa,
+          tipoVehiculo: selectedTicket.tipo_vehiculo,
+          horaIngreso: selectedTicket.horario_ingreso,
+          horaSalida: ahora.toISOString(),
+          horas: liquidacion.horas,
+          subtotal: totalBase,
+          iva: iva,
+          total: total,
+          metodoPago: metodoPago,
+          nombreParqueadero: 'PARKPRO',
+        });
+      } catch (err: any) {
+        console.error('Error printing exit ticket:', err);
+      }
+    }
+
     setTicketLiquidacion(ticketLiq);
     setOpenLiquidacionDialog(false);
     setOpenPagoDigital(false);
@@ -420,6 +462,31 @@ export default function Tickets() {
           <Tab label={`Finalizados (${tickets.filter(t => t.estado === 'FINALIZADO').length})`} />
         </Tabs>
       </Card>
+
+      <Grid container spacing={2} sx={{ mb: 3 }}>
+        <Grid item xs={12} md={6}>
+          <ScannerDevice
+            connectedDevice={scanner.connectedDevice}
+            isConnecting={scanner.isConnecting}
+            isScanning={scanner.isScanning}
+            error={scanner.error}
+            onConnect={scanner.scanDevice}
+            onDisconnect={scanner.disconnectDevice}
+            onStartScan={scanner.startScan}
+          />
+        </Grid>
+        <Grid item xs={12} md={6}>
+          <PrinterDevice
+            connectedPrinter={printer.connectedPrinter}
+            isConnecting={printer.isConnecting}
+            isPrinting={printer.isPrinting}
+            error={printer.error}
+            onConnect={printer.connectPrinter}
+            onDisconnect={printer.disconnectPrinter}
+            onPrintTest={printer.printTest}
+          />
+        </Grid>
+      </Grid>
 
       <Card>
         <TableContainer>
@@ -615,9 +682,16 @@ export default function Tickets() {
           <Button startIcon={<ContentCopy />} onClick={copyToClipboard}>
             Copiar
           </Button>
-          <Button startIcon={<Print />} onClick={handlePrintTicket} variant="contained">
+          <Button startIcon={<Print />} onClick={handlePrintTicket}>
             Imprimir
           </Button>
+          {printer.connectedPrinter && (
+            <Tooltip title="Imprimir en impresora térmica">
+              <Button startIcon={<PrintIcon />} onClick={handlePrintToThermal} variant="contained" color="success">
+                Imprimir Ticket
+              </Button>
+            </Tooltip>
+          )}
         </DialogActions>
       </Dialog>
 
@@ -967,7 +1041,7 @@ export default function Tickets() {
                 mx: 'auto',
                 mb: 2
               }}>
-                <Typography variant="h3" sx={{ color: '#fff' }}>✓</Typography>
+                <Typography variant="h3" sx={{ color: '#fff' }}>a</Typography>
               </Box>
               <Typography variant="h6" sx={{ mb: 1 }}>Pago confirmado</Typography>
               <Typography variant="body2" color="text.secondary">

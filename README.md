@@ -10,6 +10,8 @@ Sistema completo de gestión de parqueadero con control de acceso automatizado, 
 - **Facturación**: Facturación electrónica DIAN (UBL 2.1)
 - **Reportes**: Cierres de turno, reportes diarios/semanales/mensuales
 - **UI Responsiva**: Dashboard web adaptativo
+- **Pistola Escáner**: Integración Bluetooth para escaneo de códigos de barras
+- **Impresora Térmica**: Integración Bluetooth para impresión de tickets (ESC/POS)
 
 ## 🛠️ Tecnologías
 
@@ -27,6 +29,7 @@ Sistema completo de gestión de parqueadero con control de acceso automatizado, 
 - Material UI 5
 - Recharts
 - Zustand
+- Web Bluetooth API
 
 ## 📋 Requisitos Previos
 
