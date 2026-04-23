@@ -6,6 +6,7 @@ import { Ticket } from '../../database/entities';
 import { VehiclesModule } from '../vehicles/vehicles.module';
 import { SpacesModule } from '../spaces/spaces.module';
 import { PaymentsModule } from '../payments/payments.module';
+import { ConfiguracionModule } from '../configuracion/configuracion.module';
 
 @Module({
   imports: [
@@ -13,6 +14,7 @@ import { PaymentsModule } from '../payments/payments.module';
     VehiclesModule,
     forwardRef(() => SpacesModule),
     forwardRef(() => PaymentsModule),
+    ConfiguracionModule,
   ],
   controllers: [TicketsController],
   providers: [TicketsService],
