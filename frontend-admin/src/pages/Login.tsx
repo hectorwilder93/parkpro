@@ -89,8 +89,8 @@ export default function Login() {
               }}
             />
             <Button fullWidth variant="contained" size="large" type="submit" disabled={loading} sx={{ mb: 3 }}>
-              {loading ? 'Iniciando...' : 'Iniciar Sesión'}
             </Button>
+            {loading ? 'Iniciando...' : 'Iniciar Sesion'}
           </form>
 
           <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', mb: 2 }}>

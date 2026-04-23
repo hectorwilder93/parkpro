@@ -2,6 +2,22 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Configuracion } from '../../database/entities';
+import { TARIFAS_DEFAULT, TarifasParking } from '../../common/utils/tarifa.utils';
+import { IVA_TASA_DEFAULT } from '../../common/utils/impuesto.utils';
+
+export interface ConfiguracionSistema {
+  tarifas: TarifasParking;
+  ivaTasa: number;
+  maxDay: number;
+  openingTime: string;
+  closingTime: string;
+  companyName: string;
+  nit: string;
+  address: string;
+  phone: string;
+  email: string;
+  descuentoEmpleadoPredeterminado: number;
+}
 
 @Injectable()
 export class ConfiguracionService {
@@ -10,20 +26,18 @@ export class ConfiguracionService {
     private configuracionRepository: Repository<Configuracion>,
   ) {}
 
-  async getConfiguracion(): Promise<any> {
+  async getConfiguracion(): Promise<ConfiguracionSistema> {
     const config = await this.configuracionRepository.findOne({ 
       where: { clave: 'sistema' } 
     });
     
     if (config) {
-      return config.valor;
+      return config.valor as ConfiguracionSistema;
     }
 
-    const defaultConfig = {
-      autoTariff: 4000,
-      motoTariff: 2000,
-      vanTariff: 6000,
-      discTariff: 3000,
+    const defaultConfig: ConfiguracionSistema = {
+      tarifas: TARIFAS_DEFAULT,
+      ivaTasa: IVA_TASA_DEFAULT,
       maxDay: 40000,
       openingTime: '06:00',
       closingTime: '22:00',
@@ -43,7 +57,17 @@ export class ConfiguracionService {
     return defaultConfig;
   }
 
-  async guardarConfiguracion(config: any): Promise<Configuracion> {
+  async getIvaTasa(): Promise<number> {
+    const config = await this.getConfiguracion();
+    return config.ivaTasa ?? IVA_TASA_DEFAULT;
+  }
+
+  async getTarifas(): Promise<TarifasParking> {
+    const config = await this.getConfiguracion();
+    return config.tarifas ?? TARIFAS_DEFAULT;
+  }
+
+  async guardarConfiguracion(config: ConfiguracionSistema): Promise<Configuracion> {
     let existing = await this.configuracionRepository.findOne({ 
       where: { clave: 'sistema' } 
     });

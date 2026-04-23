@@ -6,14 +6,10 @@ import { CreateTicketDto, SearchTicketDto, DigitalPaymentDto } from './dto/ticke
 import { VehiclesService } from '../vehicles/vehicles.service';
 import { SpacesService } from '../spaces/spaces.service';
 import { PaymentsService } from '../payments/payments.service';
+import { ConfiguracionService } from '../configuracion/configuracion.service';
 import { v4 as uuidv4 } from 'uuid';
-
-const TARIFAS_POR_TIPO: Record<string, number> = {
-  'Automovil': 4000,
-  'Motocicleta': 2000,
-  'Camioneta': 6000,
-  'Discapacitados': 3000,
-};
+import { getTarifaPorTipo, esTipoVehiculoEmpleado } from '../../common/utils/tarifa.utils';
+import { calcularImpuestoSustractivo, esPagoEnEfectivo, formatearMontoParaPago } from '../../common/utils/impuesto.utils';
 
 @Injectable()
 export class TicketsService {
@@ -25,6 +21,7 @@ export class TicketsService {
     private spacesService: SpacesService,
     @Inject(forwardRef(() => PaymentsService))
     private paymentsService: PaymentsService,
+    private configuracionService: ConfiguracionService,
   ) {}
 
   async findAll(): Promise<Ticket[]> {
@@ -159,11 +156,15 @@ export class TicketsService {
 
     // Normalize payment method to uppercase
     const metodoNormalizado = metodoPago.toUpperCase();
+    
+    // Apply rounding based on payment method
+    const esEfectivo = esPagoEnEfectivo(metodoNormalizado);
+    const montoFormateado = formatearMontoParaPago(monto, esEfectivo, 50);
 
     // Process payment
     await this.paymentsService.createPayment({
       ticket_id: ticket.id,
-      monto,
+      monto: montoFormateado,
       metodo: metodoNormalizado as any,
       usuario_id_procesa: usuarioId,
     });
@@ -189,7 +190,12 @@ export class TicketsService {
     const diffMs = new Date().getTime() - new Date(ticket.horario_ingreso).getTime();
     const diffMinutes = Math.floor(diffMs / (1000 * 60));
     
-    const tarifa = TARIFAS_POR_TIPO[ticket.tipo_vehiculo] || 4000;
+    const tarifas = await this.configuracionService.getTarifas();
+    const esEmpleado = esTipoVehiculoEmpleado(ticket.tipo_vehiculo);
+    const tarifa = esEmpleado 
+      ? tarifas.tarifaEmpleado 
+      : getTarifaPorTipo(ticket.tipo_vehiculo, tarifas);
+    
     const horasCompletas = Math.floor(diffMinutes / 60);
     const minutosRestantes = diffMinutes % 60;
     const precioMinuto = tarifa / 60;
@@ -220,10 +226,14 @@ export class TicketsService {
 
     const metodoPago = digitalPaymentDto.metodo_pago.toUpperCase();
     
+    // Digital payments keep decimals (no rounding)
+    const esEfectivo = esPagoEnEfectivo(metodoPago);
+    const montoFormateado = formatearMontoParaPago(digitalPaymentDto.monto, esEfectivo, 50);
+    
     // Process payment
     const pago = await this.paymentsService.createPayment({
       ticket_id: ticket.id,
-      monto: digitalPaymentDto.monto,
+      monto: montoFormateado,
       metodo: metodoPago as any,
       usuario_id_procesa: usuarioId,
       transaccion_id: `DIG-${Date.now()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`,

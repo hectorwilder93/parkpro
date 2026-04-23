@@ -3,6 +3,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Factura, Ticket } from '../../database/entities';
 import { v4 as uuidv4 } from 'uuid';
+import { calcularImpuestoSustractivoSinRedondeo } from '../../common/utils/impuesto.utils';
+import { ConfiguracionService } from '../configuracion/configuracion.service';
 
 @Injectable()
 export class InvoicesService {
@@ -11,6 +13,7 @@ export class InvoicesService {
     private facturaRepository: Repository<Factura>,
     @InjectRepository(Ticket)
     private ticketRepository: Repository<Ticket>,
+    private configuracionService: ConfiguracionService,
   ) {}
 
   async findAll(): Promise<Factura[]> {
@@ -70,13 +73,17 @@ export class InvoicesService {
       return existingInvoice;
     }
 
-    // Calculate totals (19% IVA)
-    const subtotal = ticket['monto'] || 0;
-    const iva = Math.round(subtotal * 0.19);
-    const total = subtotal + iva;
+    // Get IVA rate from configuration
+    const ivaTasa = await this.configuracionService.getIvaTasa();
+    
+    // ticket.monto is the TOTAL paid by customer
+    // Calculate base (subtotal) and IVA using subtractive method
+    // base = total / (1 + tasa)
+    const totalPagado = ticket['monto'] || 0;
+    const calculo = calcularImpuestoSustractivoSinRedondeo(totalPagado, ivaTasa);
 
     // Generate CUFE
-    const cufe = this.generateCUFE(ticketId, subtotal, iva, clienteData.nit);
+    const cufe = this.generateCUFE(ticketId, calculo.base, calculo.iva, clienteData.nit);
 
     const factura = this.facturaRepository.create({
       ticket_id: ticketId,
@@ -84,9 +91,9 @@ export class InvoicesService {
       nit_cliente: clienteData.nit,
       nombre_cliente: clienteData.nombre,
       email_cliente: clienteData.email,
-      subtotal,
-      iva,
-      total,
+      subtotal: calculo.base,
+      iva: calculo.iva,
+      total: calculo.total,
     });
 
     return this.facturaRepository.save(factura);
